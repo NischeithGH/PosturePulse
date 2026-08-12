@@ -1,0 +1,54 @@
+# PostgreSQL + Adminer + FastAPI.
+# From this folder:
+#   cp api/.env.example api/.env
+#   docker compose up -d --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: posture-pulse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-posturepulse}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-posturepulse}
+      POSTGRES_DB: ${POSTGRES_DB:-posturepulse}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-posturepulse} -d ${POSTGRES_DB:-posturepulse}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:latest
+    container_name: posture-pulse-adminer
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
+
+
+  api:
+    build:
+      context: ./api
+    container_name: posture-pulse-api
+    restart: unless-stopped
+    env_file:
+      - ./api/.env
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
